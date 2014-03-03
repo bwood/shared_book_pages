@@ -1,0 +1,7 @@
+core = 7.x
+description = Allow the book module to share pages
+dependencies[] = book
+name = " UC Berkeley Book"
+package = "ucberkeley"
+project = ucberkeley_book_pages
+version = 7.x-dev
