@@ -1,0 +1,34 @@
+<?php
+
+function shared_book_pages_entity_load(array $entities, $type) {
+  if ($type != 'node') {
+    return;
+  }
+  foreach ($entities as $entity) {
+    if ($entity->type !== 'book') {
+      return;
+    }
+    if (count($entity->field_shared_page) != 1) {
+      return;
+    }
+    // the source node should not be tagged with it's own nid, but in case it is, bail out to prevent infinite loop!
+    //TODO: support locale
+    $term = taxonomy_term_load($entity->field_shared_page[LANGUAGE_NONE][0]['tid']);
+    $eid = intval($term->name);
+    if ($eid == $entity->nid) {
+      return;
+    }
+    //TODO: Can the source node be tagged with the nid of a source-source-node? Use a static variable to make that illegal? Performance...
+    $query = new EntityFieldQuery();
+    $query->entityCondition('entity_type', 'node')
+      ->entityCondition('bundle', 'book')
+      ->entityCondition('entity_id', $eid, '=');
+    $result = $query->execute();
+    if (isset($result['node'])) {
+      $source_nid = array_keys($result['node']);
+      $source_node = entity_load('node', array($source_nid[0]));
+      $entity->title = $source_node[$eid]->title;
+      $entity->body = $source_node[$eid]->body;
+    }
+  }
+}
