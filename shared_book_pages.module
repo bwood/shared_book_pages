@@ -32,3 +32,24 @@ function shared_book_pages_entity_load(array $entities, $type) {
     }
   }
 }
+
+function shared_book_pages_form_alter(&$form, &$form_state, $form_id) {
+  switch ($form_id) {
+    case "book_node_form":
+      if ($form['#node_edit_form'] ==! TRUE) {
+        return;
+      }
+      if (!empty($form['field_shared_page'][LANGUAGE_NONE]['#default_value'])) {
+        $nid = $form['field_shared_page'][LANGUAGE_NONE]['#default_value'];
+        //$form['title']['#default_value'] = "This is SHARED from nid $nid";
+        $form = array();
+        $form['shared_page'] = array(
+          '#type' => 'item',
+          '#title' => "This is a shared page",
+          '#markup' => "This page is used in multiple books.  To edit it please " . l("edit the source content", 'node/' . $nid . '/edit')
+        );
+      }
+      break;
+
+  }
+}
