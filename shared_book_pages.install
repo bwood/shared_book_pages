@@ -1,9 +1,29 @@
 <?php
 
+function _shared_book_pages_field_info() {
+  $t = get_t();
+  $field = array(
+    'field_name' => 'field_shared_book_page',
+    'type' => 'taxonomy_term_reference',
+    'label' => $t('Shared Page Node ID'),
+    'settings' => array(
+      'allowed_values' => array(
+        array(
+          'vocabulary' => 'shared_book_pages',
+          'parent' => 0
+        )
+      )
+    )
+  );
+  return $field;
+}
+
 /**
  * Implementation of hook install
  */
 function shared_book_pages_install() {
+  $field = _shared_book_pages_field_info();
+  $t = get_t();
   //Create the required vocabulary if it doesn't exist
   if (!taxonomy_vocabulary_machine_name_load('shared_book_pages')) {
     $new_vocab = (object) array(
@@ -16,14 +36,39 @@ function shared_book_pages_install() {
   else {
     drupal_set_message("There is already a shared_book_pages vocabulary, so we are not creating a new one.");
   }
+
+  // Create a taxonomy field and use the taxonomy entity we created earlier
+  field_create_field($field);
+
+  // Add the term reference field to the book content type
+  $instance = array(
+    'field_name' => 'field_shared_book_page',
+    'entity_type' => 'node',
+    'bundle' => 'book',
+    'label' => $t('Shared Page Node ID'),
+    'description' => 'The body of node referenced in this field will replace this node\'s body',
+    'required' => FALSE,
+    'widget' => array(
+      'type' => 'taxonomy_autocomplete',
+    ),
+    'display' => array(
+      'default' => array('type' => 'hidden'),
+    )
+  );
+  field_create_instance($instance);
 }
 
 /**
  * Implementation of hook uninstall
  */
 function shared_book_pages_uninstall() {
+  $field = _shared_book_pages_field_info();
+
   //TODO: Uninstalling this module will delete the Shared Book Pages vocabulary effectively removing all of your shared pages.  Are you sure?
   if ($vocab = taxonomy_vocabulary_machine_name_load('shared_book_pages')) {
     taxonomy_vocabulary_delete($vocab->vid);
   }
+
+  // Remove the term reference field from the book content type
+  field_delete_instance($field);
 }
