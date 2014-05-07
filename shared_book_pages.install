@@ -1,0 +1,29 @@
+<?php
+
+/**
+ * Implementation of hook install
+ */
+function shared_book_pages_install() {
+  //Create the required vocabulary if it doesn't exist
+  if (!taxonomy_vocabulary_machine_name_load('shared_book_pages')) {
+    $new_vocab = (object) array(
+      'name' => 'Shared Book Pages',
+      'description' => 'A vocabulary for defining shared book pages relationships',
+      'machine_name' => 'shared_book_pages',
+    );
+    taxonomy_vocabulary_save($new_vocab);
+  }
+  else {
+    drupal_set_message("There is already a shared_book_pages vocabulary, so we are not creating a new one.");
+  }
+}
+
+/**
+ * Implementation of hook uninstall
+ */
+function shared_book_pages_uninstall() {
+  //TODO: Uninstalling this module will delete the Shared Book Pages vocabulary effectively removing all of your shared pages.  Are you sure?
+  if ($vocab = taxonomy_vocabulary_machine_name_load('shared_book_pages')) {
+    taxonomy_vocabulary_delete($vocab->vid);
+  }
+}
