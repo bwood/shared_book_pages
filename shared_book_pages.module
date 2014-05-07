@@ -8,12 +8,12 @@ function shared_book_pages_entity_load(array $entities, $type) {
     if ($entity->type !== 'book') {
       return;
     }
-    if (count($entity->field_shared_page) != 1) {
+    if (count($entity->field_shared_book_page) != 1) {
       return;
     }
     // the source node should not be tagged with it's own nid, but in case it is, bail out to prevent infinite loop!
     //TODO: support locale
-    $term = taxonomy_term_load($entity->field_shared_page[LANGUAGE_NONE][0]['tid']);
+    $term = taxonomy_term_load($entity->field_shared_book_page[LANGUAGE_NONE][0]['tid']);
     $eid = intval($term->name);
     if ($eid == $entity->nid) {
       return;
@@ -39,8 +39,8 @@ function shared_book_pages_form_alter(&$form, &$form_state, $form_id) {
       if ($form['#node_edit_form'] ==! TRUE) {
         return;
       }
-      if (!empty($form['field_shared_page'][LANGUAGE_NONE]['#default_value'])) {
-        $nid = $form['field_shared_page'][LANGUAGE_NONE]['#default_value'];
+      if (!empty($form['field_shared_book_page'][LANGUAGE_NONE]['#default_value'])) {
+        $nid = $form['field_shared_book_page'][LANGUAGE_NONE]['#default_value'];
         //$form['title']['#default_value'] = "This is SHARED from nid $nid";
         $form = array();
         $form['shared_page'] = array(
