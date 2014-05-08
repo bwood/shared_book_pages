@@ -9,7 +9,7 @@ function _shared_book_pages_field_info() {
     'settings' => array(
       'allowed_values' => array(
         array(
-          'vocabulary' => 'shared_book_pages',
+          'vocabulary' => variable_get('shared_book_pages_vocabulary'),
           'parent' => 0
         )
       )
@@ -22,6 +22,7 @@ function _shared_book_pages_field_info() {
  * Implementation of hook install
  */
 function shared_book_pages_install() {
+  variable_set('shared_book_pages_vocabulary', 'shared_book_pages');
   $field = _shared_book_pages_field_info();
   $t = get_t();
   //Create the required vocabulary if it doesn't exist
@@ -29,12 +30,12 @@ function shared_book_pages_install() {
     $new_vocab = (object) array(
       'name' => 'Shared Book Pages',
       'description' => 'A vocabulary for defining shared book pages relationships',
-      'machine_name' => 'shared_book_pages',
+      'machine_name' => variable_get('shared_book_pages_vocabulary'),
     );
     taxonomy_vocabulary_save($new_vocab);
   }
   else {
-    drupal_set_message("There is already a shared_book_pages vocabulary, so we are not creating a new one.");
+    drupal_set_message("There is already a " . variable_get("shared_book_pages_vocabulary") . " vocabulary, so we are not creating a new one.");
   }
 
   // Create a taxonomy field and use the taxonomy entity we created earlier
@@ -65,7 +66,7 @@ function shared_book_pages_uninstall() {
   $field = _shared_book_pages_field_info();
 
   //TODO: Uninstalling this module will delete the Shared Book Pages vocabulary effectively removing all of your shared pages.  Are you sure?
-  if ($vocab = taxonomy_vocabulary_machine_name_load('shared_book_pages')) {
+  if ($vocab = taxonomy_vocabulary_machine_name_load(variable_get('shared_book_pages_vocabulary'))) {
     taxonomy_vocabulary_delete($vocab->vid);
   }
 
