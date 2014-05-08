@@ -41,8 +41,11 @@ function shared_book_pages_form_alter(&$form, &$form_state, $form_id) {
       }
       if (!empty($form['field_shared_book_page'][LANGUAGE_NONE]['#default_value'])) {
         $nid = $form['field_shared_book_page'][LANGUAGE_NONE]['#default_value'];
-        //$form['title']['#default_value'] = "This is SHARED from nid $nid";
+        $form_state['process_input'] = FALSE;
         $form = array();
+        $form['#parents'] = array();
+        $form['#array_parents'] = array();
+        $form['#tree'] = FALSE;
         $form['shared_page'] = array(
           '#type' => 'item',
           '#title' => "This is a shared page",
@@ -52,4 +55,38 @@ function shared_book_pages_form_alter(&$form, &$form_state, $form_id) {
       break;
 
   }
+}
+/**
+ * Implementation of hook_menu_alter
+ * @param $items
+ *
+ * Don't display the shared book in the list of books.
+ */
+function shared_book_pages_menu_alter(&$items) {
+  $items['book'] = array(
+    'title' => 'Books',
+    'page callback' => 'shared_book_pages_book_render',
+    'access arguments' => array('access content'),
+    'type' => MENU_SUGGESTED_ITEM,
+    'file' => '',
+  );
+}
+/**
+ * Menu callback: Prints a listing of all books.
+ *
+ * @return string
+ *   A HTML-formatted string with the listing of all books content.
+ *
+ * @see book_menu()
+ */
+function shared_book_pages_book_render() {
+  require_once(drupal_get_path('module', 'book') . "/book.module");
+  $shared_book_title = variable_get('shared_book_title', 'Shared Book Pages');
+  $book_list = array();
+  foreach (book_get_books() as $book) {
+    if ($book['title'] != $shared_book_title) {
+      $book_list[] = l($book['title'], $book['href'], $book['options']);
+    }
+  }
+  return theme('item_list', array('items' => $book_list));
 }
