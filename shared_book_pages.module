@@ -113,10 +113,12 @@ function shared_book_pages_book_render() {
  */
 function shared_book_pages_validate($form, &$form_state) {
   $references = shared_book_pages_get_references($form['nid']['#value']);
-  $requested_refereneced_nid = $form_state['values']['field_shared_book_page'][LANGUAGE_NONE][0]['name'];
+  $requested_refereneced_nid = NULL;
+  if (count($form_state['values']['field_shared_book_page'][LANGUAGE_NONE]) > 0) {
+    $requested_refereneced_nid = $form_state['values']['field_shared_book_page'][LANGUAGE_NONE][0]['name'];
+  }
   if (in_array($requested_refereneced_nid, array_keys($references['node']))) {
-    $node = node_load($requested_refereneced_nid);
-    form_set_error('field_shared_book_page', t("The page ". l($node->title, "node/" . $node->nid, array('attributes' => array('target' => '_new'))) . " (node_id = %nid) already references <em>this</em> node. Referencing that node would create a circular reference which we cannot allow.", array('%nid' => $requested_refereneced_nid)));
+    form_set_error('field_shared_book_page', t("The page ". shared_book_pages_get_linked_title($requested_refereneced_nid) . " (node_id = %nid) already references <em>this</em> node. Referencing that node would create a circular reference which we cannot allow.", array('%nid' => $requested_refereneced_nid)));
   }
 }
 
@@ -146,4 +148,36 @@ function shared_book_pages_get_references($nid) {
     ->fieldCondition('field_shared_book_page', 'tid', $tid)
     ->execute();
   return $entities;
+}
+
+function shared_book_pages_get_linked_title($nid, $target_new = TRUE) {
+  $node = node_load($nid);
+  if ($target_new) {
+    $link = l($node->title, "node/" . $node->nid, array('attributes' => array('target' => '_new')));
+  }
+  else {
+    l($node->title, "node/" . $node->nid);
+  }
+  return $link;
+}
+
+/**
+ * Implementation of hook_node_update
+ */
+
+function shared_book_pages_node_update($node) {
+  if ($node->type == 'book') {
+    // Act on the unpublishing
+    if ($node->original->status == 1 && $node->status == 0) {
+      $references = shared_book_pages_get_references($node->nid);
+      if (count($references['node'] > 0)) {
+        $html = "<ul>\n";
+        foreach ($references['node'] as $node) {
+          $html .= "<li>" . shared_book_pages_get_linked_title($node->nid) . "</li>\n";
+        }
+        $html .= "</ul>\n";
+      }
+      drupal_set_message("The following nodes reference this page: $html. Even though this pages is now unpublished, those nodes will still display the content of this page.", "warning");
+    }
+  }
 }
