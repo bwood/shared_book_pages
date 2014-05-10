@@ -42,11 +42,11 @@ function shared_book_pages_entity_load(array $entities, $type) {
 function shared_book_pages_form_alter(&$form, &$form_state, $form_id) {
   switch ($form_id) {
     case "book_node_form":
-      if ($form['#node_edit_form'] == !TRUE) {
+      if ($form['#node_edit_form'] !== TRUE) {
         return;
       }
       /*
-       * Alter the edit form just on nodes with values in field_shared_book_page
+       * Alter the edit form just on nodes with values in field_shared_book_page i.e. nodes which share content from other pages
        */
       if (!empty($form['field_shared_book_page'][LANGUAGE_NONE]['#default_value'])) {
         $nid = $form['field_shared_book_page'][LANGUAGE_NONE]['#default_value'];
@@ -64,6 +64,22 @@ function shared_book_pages_form_alter(&$form, &$form_state, $form_id) {
        * Add custom validation callback on all book nodes
        */
       array_push($form['#validate'], 'shared_book_pages_validate');
+
+      /*
+       * When editing a page that is shared by other pages, list these pages so the editor will be aware
+       * of ramifications of edits
+       */
+
+
+      $references = shared_book_pages_get_references($form['nid']['#value']);
+      if (count($references['node'] > 0)) {
+        $html = "<ul>\n";
+        foreach ($references['node'] as $node) {
+          $html .= "<li>" . shared_book_pages_get_linked_title($node->nid) . "</li>\n";
+        }
+        $html .= "</ul>\n";
+      }
+      drupal_set_message("The following pages share this page's content: $html. Keep in mind that changes you make to this page will also affect the above pages.", "warning");
       break;
   }
 }
@@ -118,7 +134,7 @@ function shared_book_pages_validate($form, &$form_state) {
     $requested_refereneced_nid = $form_state['values']['field_shared_book_page'][LANGUAGE_NONE][0]['name'];
   }
   if (in_array($requested_refereneced_nid, array_keys($references['node']))) {
-    form_set_error('field_shared_book_page', t("The page ". shared_book_pages_get_linked_title($requested_refereneced_nid) . " (node_id = %nid) already references <em>this</em> node. Referencing that node would create a circular reference which we cannot allow.", array('%nid' => $requested_refereneced_nid)));
+    form_set_error('field_shared_book_page', t("The page " . shared_book_pages_get_linked_title($requested_refereneced_nid) . " (node_id = %nid) already references <em>this</em> node. Referencing that node would create a circular reference which we cannot allow.", array('%nid' => $requested_refereneced_nid)));
   }
 }
 
@@ -150,15 +166,15 @@ function shared_book_pages_get_references($nid) {
   return $entities;
 }
 
-function shared_book_pages_get_linked_title($nid, $target_new = TRUE) {
+function shared_book_pages_get_linked_title($nid, $show_book = TRUE) {
   $node = node_load($nid);
-  if ($target_new) {
-    $link = l($node->title, "node/" . $node->nid, array('attributes' => array('target' => '_new')));
+  $shared_by = NULL;
+  if ($show_book) {
+    $book = node_load($node->book['bid']);
+    $shared_by = "Book: " . l($book->title, "node/" . $book->nid, array('attributes' => array('target' => '_new'))) . " Page: ";
   }
-  else {
-    l($node->title, "node/" . $node->nid);
-  }
-  return $link;
+  $shared_by .= l($node->title, "node/" . $node->nid, array('attributes' => array('target' => '_new')));
+  return $shared_by;
 }
 
 /**
@@ -177,7 +193,16 @@ function shared_book_pages_node_update($node) {
         }
         $html .= "</ul>\n";
       }
-      drupal_set_message("The following nodes reference this page: $html. Even though this pages is now unpublished, those nodes will still display the content of this page.", "warning");
+      drupal_set_message("The following pages share this page's content: $html. Even though this page is now unpublished, the above pages will still display content from this page.", "warning");
     }
   }
+}
+
+/**
+ * Implementation of hook_delete()
+ *
+ * When a shared page is deleted, remove its nid-term from the Shared Pages vocab
+ */
+function shared_book_pages_delete() {
+
 }
