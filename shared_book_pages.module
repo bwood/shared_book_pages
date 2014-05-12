@@ -72,14 +72,16 @@ function shared_book_pages_form_alter(&$form, &$form_state, $form_id) {
 
 
       $references = shared_book_pages_get_references($form['nid']['#value']);
-      if (count($references['node'] > 0)) {
-        $html = "<ul>\n";
-        foreach ($references['node'] as $node) {
-          $html .= "<li>" . shared_book_pages_get_linked_title($node->nid) . "</li>\n";
+      if (array_key_exists('node', $references)) {
+        if (count($references['node'] > 0)) {
+          $html = "<ul>\n";
+          foreach ($references['node'] as $node) {
+            $html .= "<li>" . shared_book_pages_get_linked_title($node->nid) . "</li>\n";
+          }
+          $html .= "</ul>\n";
         }
-        $html .= "</ul>\n";
+        drupal_set_message("The following pages share this page's content: $html Keep in mind that changes you make to this page will also affect the above pages.", "warning");
       }
-      drupal_set_message("The following pages share this page's content: $html. Keep in mind that changes you make to this page will also affect the above pages.", "warning");
       break;
   }
 }
@@ -204,5 +206,15 @@ function shared_book_pages_node_update($node) {
  * When a shared page is deleted, remove its nid-term from the Shared Pages vocab
  */
 function shared_book_pages_delete() {
-
+  if ($node->type == 'book') {
+    $references = shared_book_pages_get_references($node->nid);
+    if (count($references['node'] > 0)) {
+      $html = "<ul>\n";
+      foreach ($references['node'] as $node) {
+        $html .= "<li>" . shared_book_pages_get_linked_title($node->nid) . "</li>\n";
+      }
+      $html .= "</ul>\n";
+    }
+  }
+  drupal_set_message("The following pages share this page's content: $html. Now that this page is deleted, it's content has been copied to the above pages. You must also delete those pages if you want to eradicate this content.", "warning");
 }
