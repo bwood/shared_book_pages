@@ -202,8 +202,11 @@ function shared_book_pages_get_title($nid, $show_book = TRUE, $linked_title = TR
   $node = node_load($nid);
   $shared_by = NULL;
   if ($show_book) {
-    $book = node_load($node->book['bid']);
-    $shared_by = "Book: " . l($book->title, "node/" . $book->nid, array('attributes' => array('target' => '_new'))) . " Page: ";
+    // if a page isn't in a book, don't try to display its book.
+    if (property_exists($node, 'book')) {
+      $book = node_load($node->book['bid']);
+      $shared_by = "Book: " . l($book->title, "node/" . $book->nid, array('attributes' => array('target' => '_new'))) . " Page: ";
+    }
   }
   if ($linked_title) {
     $shared_by .= l($node->title, "node/" . $node->nid, array('attributes' => array('target' => '_new')));
@@ -219,10 +222,13 @@ function shared_book_pages_get_title($nid, $show_book = TRUE, $linked_title = TR
  */
 
 function shared_book_pages_node_update($node) {
-  if ($node->type == 'book') {
-    // Act on the unpublishing
-    if ($node->original->status == 1 && $node->status == 0) {
-      $references = shared_book_pages_get_references($node->nid);
+  if ($node->type != 'book') {
+    return;
+  }
+  // Notify on the unpublishing
+  if ($node->original->status == 1 && $node->status == 0) {
+    $references = shared_book_pages_get_references($node->nid);
+    if (array_key_exists('node', $references)) {
       if (count($references['node'] > 0)) {
         $html = "<ul>\n";
         foreach ($references['node'] as $node) {
@@ -232,16 +238,18 @@ function shared_book_pages_node_update($node) {
       }
       drupal_set_message("The following pages share this page's content: $html. Even though this page is now unpublished, the above pages will still display content from this page.", "warning");
     }
+  }
 
-    // Notify on sharing
-    if ((count($node->original->field_shared_book_page) == 0) && ((count($node->field_shared_book_page) == 1))) {
-      drupal_set_message("You have <b>shared</b> this page. <ul><li>Updates to the source page at  " . shared_book_pages_get_title($node->field_shared_book_page[LANGUAGE_NONE][0]['name']) . " will be reflected in this page.</li></ul>");
-    }
-    // Notify on UN-sharing
-    elseif ((count($node->original->field_shared_book_page[LANGUAGE_NONE]) == 1) && ((count($node->field_shared_book_page[LANGUAGE_NONE]) == 0))) {
-      $term = taxonomy_term_load($node->original->field_shared_book_page[LANGUAGE_NONE][0]['tid']);
-      drupal_set_message("You have <b>un-shared</b> this page. <ul><li>The content from the source page at " . shared_book_pages_get_title($term->name) . " has been copied into this page.</li> <li>Updates to that source page will no longer be reflected in this page.</li></ul>");
-    }
+  // Notify on sharing
+  if ((count($node->original->field_shared_book_page) == 0) && ((count($node->field_shared_book_page) == 1))) {
+    drupal_set_message("You have <b>shared</b> this page. <ul><li>Updates to the source page at  " . shared_book_pages_get_title($node->field_shared_book_page[LANGUAGE_NONE][0]['name']) . " will be reflected in this page.</li></ul>");
+  }
+  // Notify on UN-sharing
+  // TODO: clean up array_key_exists LANGUAGE_NONE.
+  elseif ((array_key_exists(LANGUAGE_NONE, $node->original->field_shared_book_page) && (array_key_exists(LANGUAGE_NONE, $node->field_shared_book_page))) &&
+    (count($node->original->field_shared_book_page[LANGUAGE_NONE]) == 1) && ((count($node->field_shared_book_page[LANGUAGE_NONE]) == 0))) {
+    $term = taxonomy_term_load($node->original->field_shared_book_page[LANGUAGE_NONE][0]['tid']);
+    drupal_set_message("You have <b>un-shared</b> this page. <ul><li>The content from the source page at " . shared_book_pages_get_title($term->name) . " has been copied into this page.</li> <li>Updates to that source page will no longer be reflected in this page.</li></ul>");
   }
 }
 
@@ -285,10 +293,10 @@ function shared_book_pages_node_delete_confirm_submit(&$form, &$form_state, $for
  */
 function shared_book_pages_form_submit(&$form, &$form_state) {
   /*
- * Disallow chains of shared pages:
- * If node 10 shares content from 12, 8 can't share content from 10. They should be told to share content from 12 which is the true source page.
- * Without this restriction in place the code that handles deleting 12 (a source page) is needlessly complex.
- */
+   * Disallow chains of shared pages:
+   * If node 10 shares content from 12, 8 can't share content from 10. They should be told to share content from 12 which is the true source page.
+   * Without this restriction in place the code that handles deleting 12 (a source page) is needlessly complex.
+   */
   $requested_refereneced_nid = NULL;
   if (count($form_state['values']['field_shared_book_page'][LANGUAGE_NONE]) > 0) {
     $requested_refereneced_nid = $form_state['values']['field_shared_book_page'][LANGUAGE_NONE][0]['name'];
@@ -302,6 +310,35 @@ function shared_book_pages_form_submit(&$form, &$form_state) {
       $form_state['values']['field_shared_book_page'][LANGUAGE_NONE][0] = $term;
       // Tell the user we overroad their choice
       drupal_set_message("You asked to share content from " . shared_book_pages_get_title($requested_refereneced_nid) . ", but that pages gets its content from " . shared_book_pages_get_title($term['name']) . ".  We've selected the true source page for you.");
+    }
+  }
+
+
+  // Act on updating a source page
+  // Only updates to title and body fields are respected at this time
+  $new_body = $form_state['values']['body'][LANGUAGE_NONE][0]['value'];
+  $old_body = $form_state['node']->body[LANGUAGE_NONE][0]['value'];
+  $new_title = $form_state['values']['title'];
+  $old_title = $form_state['node']->title;
+  if (($new_body != $old_body) || ($new_title != $old_title)) {
+    $references = shared_book_pages_get_references($form_state['values']['nid']);
+    if (array_key_exists('node', $references)) {
+      if (count($references['node'] > 0)) {
+        $html = "<ul>\n";
+        foreach ($references['node'] as $n) {
+          //update the fields in the node that is sharing this content
+          $node_sharing = node_load($n->nid);
+          $node_sharing->title = $form_state['values']['title'];
+          $node_sharing->body[LANGUAGE_NONE][0] = array(); //start fresh (safe_value may exist in $node_sharing and not in $node
+          $node_sharing->body[LANGUAGE_NONE][0] = $form_state['values']['body'][LANGUAGE_NONE][0];
+          node_save($node_sharing);
+          // Create content for set_message after node_save.  url_alias may have changed.
+          // TODO: if the title was edited the edit is not reflected in $html, but the link works
+          $html .= "<li>" . shared_book_pages_get_title($n->nid) . "</li>\n";
+        }
+        $html .= "</ul>\n";
+      }
+      drupal_set_message("Your update was also applied to these pages: $html");
     }
   }
 }
