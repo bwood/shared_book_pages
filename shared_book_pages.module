@@ -232,6 +232,16 @@ function shared_book_pages_node_update($node) {
       }
       drupal_set_message("The following pages share this page's content: $html. Even though this page is now unpublished, the above pages will still display content from this page.", "warning");
     }
+
+    // Notify on sharing
+    if ((count($node->original->field_shared_book_page) == 0) && ((count($node->field_shared_book_page) == 1))) {
+      drupal_set_message("You have <b>shared</b> this page. <ul><li>Updates to the source page at  " . shared_book_pages_get_title($node->field_shared_book_page[LANGUAGE_NONE][0]['name']) . " will be reflected in this page.</li></ul>");
+    }
+    // Notify on UN-sharing
+    elseif ((count($node->original->field_shared_book_page[LANGUAGE_NONE]) == 1) && ((count($node->field_shared_book_page[LANGUAGE_NONE]) == 0))) {
+      $term = taxonomy_term_load($node->original->field_shared_book_page[LANGUAGE_NONE][0]['tid']);
+      drupal_set_message("You have <b>un-shared</b> this page. <ul><li>The content from the source page at " . shared_book_pages_get_title($term->name) . " has been copied into this page.</li> <li>Updates to that source page will no longer be reflected in this page.</li></ul>");
+    }
   }
 }
 
