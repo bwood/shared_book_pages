@@ -21,10 +21,7 @@ function shared_book_pages_entity_load(array $entities, $type) {
     if ($eid == $entity->nid) {
       return;
     }
-    //TODO: Can the source node be tagged with the nid of a source-source-node? Use a static variable to make that illegal? Performance...
-    /*
-     * Chains of shared pages work e.g. 53194 references 53193 which references 53750
-     */
+
     $query = new EntityFieldQuery();
     $query->entityCondition('entity_type', 'node')
       ->entityCondition('bundle', 'book')
@@ -60,17 +57,16 @@ function shared_book_pages_form_alter(&$form, &$form_state, $form_id) {
           '#markup' => "This page is used in multiple books.  To edit it please " . l("edit the source content", 'node/' . $nid . '/edit'),
         );
       }
-      /*
-       * Add custom validation callback on all book nodes
-       */
+
+      // Add custom validation callback on all book nodes
       array_push($form['#validate'], 'shared_book_pages_validate');
+      // Add custom submit handler
+      array_push($form['#submit'], 'shared_book_pages_form_submit');
 
       /*
        * When editing a page that is shared by other pages, list these pages so the editor will be aware
        * of ramifications of edits
        */
-
-
       $references = shared_book_pages_get_references($form['nid']['#value']);
       if (array_key_exists('node', $references)) {
         if (count($references['node'] > 0)) {
@@ -83,6 +79,7 @@ function shared_book_pages_form_alter(&$form, &$form_state, $form_id) {
         drupal_set_message("The following pages share this page's content: $html Keep in mind that changes you make to this page will also affect the above pages.", "warning");
       }
       break;
+
     case 'node_delete_confirm':
       if ($form['#node']->type !== 'book') {
         return;
@@ -145,6 +142,10 @@ function shared_book_pages_book_render() {
  * @see node_form_submit()
  */
 function shared_book_pages_validate($form, &$form_state) {
+  /*
+   * Prevent circular sharing:
+   * If node 10 shares node 12, node 12 can't save node 10 as it's shared page
+   */
   $references = shared_book_pages_get_references($form['nid']['#value']);
   $requested_refereneced_nid = NULL;
   if (count($form_state['values']['field_shared_book_page'][LANGUAGE_NONE]) > 0) {
@@ -263,4 +264,34 @@ function shared_book_pages_node_delete_confirm_submit(&$form, &$form_state, $for
   }
   drupal_get_messages();
   drupal_set_message("The following shared pages have also been deleted $html");
+}
+
+/**
+ * Custom submit handler
+ *
+ * @param $form
+ * @param $form_state
+ * @param $form_id
+ */
+function shared_book_pages_form_submit(&$form, &$form_state) {
+  /*
+ * Disallow chains of shared pages:
+ * If node 10 shares content from 12, 8 can't share content from 10. They should be told to share content from 12 which is the true source page.
+ * Without this restriction in place the code that handles deleting 12 (a source page) is needlessly complex.
+ */
+  $requested_refereneced_nid = NULL;
+  if (count($form_state['values']['field_shared_book_page'][LANGUAGE_NONE]) > 0) {
+    $requested_refereneced_nid = $form_state['values']['field_shared_book_page'][LANGUAGE_NONE][0]['name'];
+    $rr_node = node_load($requested_refereneced_nid);
+    if (count($rr_node->field_shared_book_page) > 0) {
+      $term = taxonomy_term_load($rr_node->field_shared_book_page[LANGUAGE_NONE][0]['tid']);
+      $term = (array) $term;
+      // remove old term array
+      array_pop($form_state['values']['field_shared_book_page'][LANGUAGE_NONE]);
+      // Select the true source term for the user by adding the source term array
+      $form_state['values']['field_shared_book_page'][LANGUAGE_NONE][0] = $term;
+      // Tell the user we overroad their choice
+      drupal_set_message("You asked to share content from " . shared_book_pages_get_title($requested_refereneced_nid) . ", but that pages gets its content from " . shared_book_pages_get_title($term['name']) . ".  We've selected the true source page for you.");
+    }
+  }
 }
