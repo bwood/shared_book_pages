@@ -1,5 +1,6 @@
 <?php
 
+
 function shared_book_pages_entity_load(array $entities, $type) {
   if ($type != 'node') {
     return;
@@ -247,7 +248,8 @@ function shared_book_pages_node_update($node) {
   // Notify on UN-sharing
   // TODO: clean up array_key_exists LANGUAGE_NONE.
   elseif ((array_key_exists(LANGUAGE_NONE, $node->original->field_shared_book_page) && (array_key_exists(LANGUAGE_NONE, $node->field_shared_book_page))) &&
-    (count($node->original->field_shared_book_page[LANGUAGE_NONE]) == 1) && ((count($node->field_shared_book_page[LANGUAGE_NONE]) == 0))) {
+    (count($node->original->field_shared_book_page[LANGUAGE_NONE]) == 1) && ((count($node->field_shared_book_page[LANGUAGE_NONE]) == 0))
+  ) {
     $term = taxonomy_term_load($node->original->field_shared_book_page[LANGUAGE_NONE][0]['tid']);
     drupal_set_message("You have <b>un-shared</b> this page. <ul><li>The content from the source page at " . shared_book_pages_get_title($term->name) . " has been copied into this page.</li> <li>Updates to that source page will no longer be reflected in this page.</li></ul>");
   }
@@ -316,10 +318,24 @@ function shared_book_pages_form_submit(&$form, &$form_state) {
 
   // Act on updating a source page
   // Only updates to title and body fields are respected at this time
-  $new_body = $form_state['values']['body'][LANGUAGE_NONE][0]['value'];
-  $old_body = $form_state['node']->body[LANGUAGE_NONE][0]['value'];
+  if (property_exists($form_state['node'], 'body')) {
+    $new_body = $form_state['values']['body'][LANGUAGE_NONE][0]['value'];
+  }
+  else {
+    $new_body = NULL;
+  }
+
+  if (property_exists($form_state['node'], 'body')) {
+    $old_body = $form_state['node']->body[LANGUAGE_NONE][0]['value'];
+  }
+  else {
+    $old_body = NULL;
+  }
+
   $new_title = $form_state['values']['title'];
   $old_title = $form_state['node']->title;
+
+  // If one of our shared fields has changed, make the equivalent update in the shared nodes.
   if (($new_body != $old_body) || ($new_title != $old_title)) {
     $references = shared_book_pages_get_references($form_state['values']['nid']);
     if (array_key_exists('node', $references)) {
