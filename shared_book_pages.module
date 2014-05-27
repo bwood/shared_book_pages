@@ -294,17 +294,21 @@ function shared_book_pages_node_delete_confirm_submit(&$form, &$form_state, $for
  * @param $form_id
  */
 function shared_book_pages_form_submit(&$form, &$form_state) {
-  /*
-   * Disallow chains of shared pages:
-   * If node 10 shares content from 12, 8 can't share content from 10. They should be told to share content from 12 which is the true source page.
-   * Without this restriction in place the code that handles deleting 12 (a source page) is needlessly complex.
-   */
+
   $requested_refereneced_nid = NULL;
   if (count($form_state['values']['field_shared_book_page'][LANGUAGE_NONE]) > 0) {
-    $requested_refereneced_nid = $form_state['values']['field_shared_book_page'][LANGUAGE_NONE][0]['name'];
-    $rr_node = node_load($requested_refereneced_nid);
-    if (count($rr_node->field_shared_book_page) > 0) {
-      $term = taxonomy_term_load($rr_node->field_shared_book_page[LANGUAGE_NONE][0]['tid']);
+    // Saving a node that is requesting to share content
+
+    /*
+     * Disallow chains of shared pages:
+     * If node 10 shares content from 12, 8 can't share content from 10. They should be told to share content from 12 which is the true source page.
+     * Without this restriction in place the code that handles deleting 12 (a source page) is needlessly complex.
+     */
+    $requested_source_nid = $form_state['values']['field_shared_book_page'][LANGUAGE_NONE][0]['name'];
+    $source_node = node_load($requested_source_nid);
+
+    if (count($source_node->field_shared_book_page) > 0) {
+      $term = taxonomy_term_load($source_node->field_shared_book_page[LANGUAGE_NONE][0]['tid']);
       $term = (array) $term;
       // remove old term array
       array_pop($form_state['values']['field_shared_book_page'][LANGUAGE_NONE]);
@@ -313,48 +317,54 @@ function shared_book_pages_form_submit(&$form, &$form_state) {
       // Tell the user we overroad their choice
       drupal_set_message("You asked to share content from " . shared_book_pages_get_title($requested_refereneced_nid) . ", but that pages gets its content from " . shared_book_pages_get_title($term['name']) . ".  We've selected the true source page for you.");
     }
-  }
-
-
-  // Act on updating a source page
-  // Only updates to title and body fields are respected at this time
-  if (property_exists($form_state['node'], 'body')) {
-    $new_body = $form_state['values']['body'][LANGUAGE_NONE][0]['value'];
+    // Update this node's shared field data with the corresponding data from the source node
+    $form_state['values']['title'] = $source_node->title;
+    $form_state['values']['body'][LANGUAGE_NONE][0] = array(); //start fresh (safe_value may exist in $node_sharing and not in $node
+    $form_state['values']['body'][LANGUAGE_NONE][0] = $source_node->body[LANGUAGE_NONE][0];
   }
   else {
-    $new_body = NULL;
-  }
+    // Saving a node that is NOT requesting to share content.  Possibly a "source" node.
 
-  if (property_exists($form_state['node'], 'body')) {
-    $old_body = $form_state['node']->body[LANGUAGE_NONE][0]['value'];
-  }
-  else {
-    $old_body = NULL;
-  }
+    if (property_exists($form_state['node'], 'body')) {
+      $new_body = $form_state['values']['body'][LANGUAGE_NONE][0]['value'];
+    }
+    else {
+      $new_body = NULL;
+    }
 
-  $new_title = $form_state['values']['title'];
-  $old_title = $form_state['node']->title;
+    if (property_exists($form_state['node'], 'body')) {
+      $old_body = $form_state['node']->body[LANGUAGE_NONE][0]['value'];
+    }
+    else {
+      $old_body = NULL;
+    }
 
-  // If one of our shared fields has changed, make the equivalent update in the shared nodes.
-  if (($new_body != $old_body) || ($new_title != $old_title)) {
-    $references = shared_book_pages_get_references($form_state['values']['nid']);
-    if (array_key_exists('node', $references)) {
-      if (count($references['node'] > 0)) {
-        $html = "<ul>\n";
-        foreach ($references['node'] as $n) {
-          //update the fields in the node that is sharing this content
-          $node_sharing = node_load($n->nid);
-          $node_sharing->title = $form_state['values']['title'];
-          $node_sharing->body[LANGUAGE_NONE][0] = array(); //start fresh (safe_value may exist in $node_sharing and not in $node
-          $node_sharing->body[LANGUAGE_NONE][0] = $form_state['values']['body'][LANGUAGE_NONE][0];
-          node_save($node_sharing);
-          // Create content for set_message after node_save.  url_alias may have changed.
-          // TODO: if the title was edited the edit is not reflected in $html, but the link works
-          $html .= "<li>" . shared_book_pages_get_title($n->nid) . "</li>\n";
+    $new_title = $form_state['values']['title'];
+    $old_title = $form_state['node']->title;
+
+    if (($new_body != $old_body) || ($new_title != $old_title)) {
+      $references = shared_book_pages_get_references($form_state['values']['nid']);
+      // If true this is a source node:
+      if (array_key_exists('node', $references)) {
+        if (count($references['node'] > 0)) {
+          $html = "<ul>\n";
+          foreach ($references['node'] as $n) {
+            // Make the equivalent updates in the corresponding field values of the shared nodes.
+            $node_sharing = node_load($n->nid);
+            $node_sharing->title = $form_state['values']['title'];
+            $node_sharing->body[LANGUAGE_NONE][0] = array(); //start fresh (safe_value may exist in $node_sharing and not in $node
+            $node_sharing->body[LANGUAGE_NONE][0] = $form_state['values']['body'][LANGUAGE_NONE][0];
+            node_save($node_sharing);
+            // Create content for set_message after node_save.  url_alias may have changed.
+            // TODO: if the title was edited the edit is not reflected in $html, but the link works
+            $html .= "<li>" . shared_book_pages_get_title($n->nid) . "</li>\n";
+          }
+          $html .= "</ul>\n";
         }
-        $html .= "</ul>\n";
+        drupal_set_message("Your update was also applied to these pages: $html");
       }
-      drupal_set_message("Your update was also applied to these pages: $html");
     }
   }
+
+
 }
