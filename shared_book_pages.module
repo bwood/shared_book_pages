@@ -318,7 +318,9 @@ function shared_book_pages_form_submit(&$form, &$form_state) {
       // Select the true source term for the user by adding the source term array
       $form_state['values']['field_shared_book_page'][LANGUAGE_NONE][0] = $term;
       // Tell the user we overroad their choice
-      drupal_set_message("You asked to share content from " . shared_book_pages_get_title($requested_refereneced_nid) . ", but that pages gets its content from " . shared_book_pages_get_title($term['name']) . ".  We've selected the true source page for you.");
+      drupal_set_message("You asked to share content from " . shared_book_pages_get_title($requested_source_nid) . ", but that pages gets its content from " . shared_book_pages_get_title($term['name']) . ".  We've selected the true source page for you.");
+      // reset source_node to true source
+      $source_node = node_load($term['name']);
     }
     // Update this node's shared field data with the corresponding data from the source node
     $form_state['values']['title'] = $source_node->title;
