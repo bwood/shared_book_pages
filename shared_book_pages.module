@@ -86,15 +86,18 @@ function shared_book_pages_form_alter(&$form, &$form_state, $form_id) {
         return;
       }
       $references = shared_book_pages_get_references($form['nid']['#value']);
-      if (count($references['node'] > 0)) {
-        $html = "<ul>\n";
-        foreach ($references['node'] as $node) {
-          $html .= "<li>" . shared_book_pages_get_title($node->nid) . "</li>\n";
+      if (array_key_exists('node', $references)) {
+        if (count($references['node'] > 0)) {
+          $html = "<ul>\n";
+          foreach ($references['node'] as $node) {
+            $html .= "<li>" . shared_book_pages_get_title($node->nid) . "</li>\n";
+          }
+          $html .= "</ul>\n";
         }
-        $html .= "</ul>\n";
+        // Add custom submit handler for deleting source pages
+        $form['#submit'][] = 'shared_book_pages_node_delete_confirm_submit';
+        drupal_set_message("This action will <strong>also delete the following pages</strong> which share this content: " . $html, "warning");
       }
-      $form['#submit'][] = 'shared_book_pages_node_delete_confirm_submit';
-      drupal_set_message("This action will <strong>also delete the following pages</strong> which share this content: " . $html, "warning");
       break;
   }
 }
@@ -256,7 +259,7 @@ function shared_book_pages_node_update($node) {
 }
 
 /**
- * Custom delete submit
+ * Custom delete submit only for source pages
  *
  * @param $form
  * @param $form_state
@@ -269,7 +272,7 @@ function shared_book_pages_node_delete_confirm_submit(&$form, &$form_state, $for
   // Send the user back to the parent book.
   $form_state['redirect'] = 'node/' . $form['#node']->book['bid'];
   $shared_pages = array();
-  $references = shared_book_pages_get_references($node->nid);
+  $references = shared_book_pages_get_references($form_state['values']['nid']);
   if (count($references['node'] > 0)) {
     $html = "<ul>\n";
     foreach ($references['node'] as $n) {
