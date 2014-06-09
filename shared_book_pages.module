@@ -363,7 +363,6 @@ function shared_book_pages_form_submit(&$form, &$form_state) {
             $node_sharing->body[LANGUAGE_NONE][0] = $form_state['values']['body'][LANGUAGE_NONE][0];
             node_save($node_sharing);
             // Create content for set_message after node_save.  url_alias may have changed.
-            // TODO: if the title was edited the edit is not reflected in $html, but the link works
             $html .= "<li>" . shared_book_pages_get_title($n->nid) . "</li>\n";
           }
           $html .= "</ul>\n";
