@@ -270,7 +270,7 @@ function shared_book_pages_node_update($node) {
  * 1. alert user about what will happen to shared pages
  * 2. remove its nid-term from the Shared Pages vocab
  */
-function shared_book_pages_node_delete_confirm_submit(&$form, &$form_state, $form_id) {
+function shared_book_pages_node_delete_confirm_submit(&$form, &$form_state) {
   // Send the user back to the parent book.
   $form_state['redirect'] = 'node/' . $form['#node']->book['bid'];
   $shared_pages = array();
