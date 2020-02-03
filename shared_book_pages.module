@@ -70,7 +70,7 @@ function shared_book_pages_form_alter(&$form, &$form_state, $form_id) {
        */
       $references = shared_book_pages_get_references($form['nid']['#value']);
       if (array_key_exists('node', $references)) {
-        if (count($references['node'] > 0)) {
+        if (is_array($references['node']) && count($references['node']) > 0) {
           $html = "<ul>\n";
           foreach ($references['node'] as $node) {
             $html .= "<li>" . shared_book_pages_get_title($node->nid) . "</li>\n";
@@ -87,7 +87,7 @@ function shared_book_pages_form_alter(&$form, &$form_state, $form_id) {
       }
       $references = shared_book_pages_get_references($form['nid']['#value']);
       if (array_key_exists('node', $references)) {
-        if (count($references['node'] > 0)) {
+        if (is_array($references['node']) && count($references['node']) > 0) {
           $html = "<ul>\n";
           foreach ($references['node'] as $node) {
             $html .= "<li>" . shared_book_pages_get_title($node->nid) . "</li>\n";
@@ -233,7 +233,7 @@ function shared_book_pages_node_update($node) {
   if ($node->original->status == 1 && $node->status == 0) {
     $references = shared_book_pages_get_references($node->nid);
     if (array_key_exists('node', $references)) {
-      if (count($references['node'] > 0)) {
+      if (is_array($references['node']) && count($references['node']) > 0) {
         $html = "<ul>\n";
         foreach ($references['node'] as $node) {
           $html .= "<li>" . shared_book_pages_get_title($node->nid) . "</li>\n";
@@ -270,12 +270,12 @@ function shared_book_pages_node_update($node) {
  * 1. alert user about what will happen to shared pages
  * 2. remove its nid-term from the Shared Pages vocab
  */
-function shared_book_pages_node_delete_confirm_submit(&$form, &$form_state, $form_id) {
+function shared_book_pages_node_delete_confirm_submit(&$form, &$form_state) {
   // Send the user back to the parent book.
   $form_state['redirect'] = 'node/' . $form['#node']->book['bid'];
   $shared_pages = array();
   $references = shared_book_pages_get_references($form_state['values']['nid']);
-  if (count($references['node'] > 0)) {
+  if (is_array($references['node']) && count($references['node']) > 0) {
     $html = "<ul>\n";
     foreach ($references['node'] as $n) {
       $html .= "<li>" . shared_book_pages_get_title($n->nid, TRUE, FALSE) . "</li>\n";
@@ -353,7 +353,7 @@ function shared_book_pages_form_submit(&$form, &$form_state) {
       $references = shared_book_pages_get_references($form_state['values']['nid']);
       // If true this is a source node:
       if (array_key_exists('node', $references)) {
-        if (count($references['node'] > 0)) {
+        if (is_array($references['node']) && count($references['node']) > 0) {
           $html = "<ul>\n";
           foreach ($references['node'] as $n) {
             // Make the equivalent updates in the corresponding field values of the shared nodes.

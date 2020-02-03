@@ -4,4 +4,4 @@ dependencies[] = book
 name = " UC Berkeley Book"
 package = "Other"
 project = shared_book_pages
-version = 7.x-dev
+version = 7.x-0.1.1
